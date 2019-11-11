@@ -36,6 +36,7 @@ println " "}
 
 if (params.profile) { exit 1, "--profile is WRONG use -profile" }
 //if (params.nano == '' &&  params.illumina == '' ) { exit 1, "input missing, use [--nano] or [--illumina]"}
+if (params.xml && params.yml == '') { exit 1, "--yml is required if XML output is activated" }
 
 /************************** 
 * INPUT CHANNELS 
@@ -105,6 +106,8 @@ include './modules/create_input_wastewater_sludge' params(output: params.output)
 include './modules/sample_template_wastewater_sludge' params(output: params.output)
 include './modules/sample_template_wastewater_sludge_collect' params(output: params.output)
 
+// xml stuff
+include './modules/xml_get_study' params(output: params.output)
 
 
 /************************** 
@@ -150,6 +153,14 @@ workflow wf_create_template_wastewater_sludge {
     sample_template_header_metagenome(sample_template_wastewater_sludge(template_input_ch).toList())
 } 
 
+workflow xml {
+  get: 
+    yml
+    script
+  main:
+    xml_get_study(yml, script)
+}
+
 
 
 /************************** 
@@ -164,7 +175,9 @@ workflow {
       if (!params.nano && params.illumina && params.template) { wf_validate_paired_fastq(illumina_input_ch) }
 
       if (params.xml) {
-
+        yml = file(params.yml)
+        script = file('scripts/parse_yml.sh')
+        xml(yml, script)
       }
       else {
         // create experiment templates
@@ -177,7 +190,7 @@ workflow {
             wf_create_template_wastewater_sludge(template_input_ch) }
         if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
        // -- metagenome
-       
+
       }
 }
 
@@ -219,6 +232,10 @@ def helpMSG() {
 
     Step 9: check that "[Sample reference suggestions]" is correctly linking to your reads, select missing inputs. DONE
 
+    __WIP__ XML example execution:
+
+    nextflow run main.nf --nano 'data/some.fasta' --wastewater_sludge --template results/INPUT_FORM.txt --xml --yml ../../../Dropbox/yaml/input.yml
+
 
     ${c_yellow}Usage example:${c_reset}
     
@@ -227,7 +244,8 @@ def helpMSG() {
     ${c_green} --nano ${c_reset}            '*.fastq.gz'         -> one sample per file
     ${c_green} --illumina ${c_reset}        '*.R{1,2}.fastq.gz'  -> file pairs
     ${c_dim}  ..change above input to csv:${c_reset} ${c_green}--list ${c_reset}
-
+    ${c_green} --yml ${c_reset}             '*.yml'  -> one file per study
+  
     ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your template file         
 
     ${c_yellow}Sample templates:${c_reset}
