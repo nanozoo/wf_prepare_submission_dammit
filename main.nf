@@ -2,8 +2,8 @@
 nextflow.preview.dsl=2
 
 /*
-Nextflow -- Analysis Pipeline
-Author: someone@gmail.com
+Nextflow
+Author: contact@nanozoo.org
 */
 
 /************************** 
@@ -35,7 +35,7 @@ println "Output dir name: $params.output\u001B[0m"
 println " "}
 
 if (params.profile) { exit 1, "--profile is WRONG use -profile" }
-if (params.nano == '' &&  params.illumina == '' ) { exit 1, "input missing, use [--nano] or [--illumina]"}
+//if (params.nano == '' &&  params.illumina == '' ) { exit 1, "input missing, use [--nano] or [--illumina]"}
 
 /************************** 
 * INPUT CHANNELS 
@@ -43,26 +43,47 @@ if (params.nano == '' &&  params.illumina == '' ) { exit 1, "input missing, use 
 
 // nanopore reads input & --list support
 if (params.nano && params.list) { nano_input_ch = Channel
-  .fromPath( params.nano, checkIfExists: true )
-  .splitCsv()
-  .map { row -> ["${row[0]}", file("${row[1]}", checkIfExists: true)] }
-  .view() }
-  else if (params.nano) { nano_input_ch = Channel
+    .fromPath( params.nano, checkIfExists: true )
+    .splitCsv()
+    .map { row -> ["${row[0]}", file("${row[1]}", checkIfExists: true)] }
+    .view() }
+else if (params.nano) { nano_input_ch = Channel
     .fromPath( params.nano, checkIfExists: true)
-    .map { file -> tuple(file.baseName, file) }
+    .map { file -> tuple(file.simpleName, file) }
     .view()
+// template channel
+//elseif list missing
+if (params.nano) { template_input_ch = Channel
+    .fromPath( params.nano, checkIfExists: true)
+    .map { file -> (file.simpleName) }
+    .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+    .view() }
 }
 
 // illumina reads input & --list support
 if (params.illumina && params.list) { illumina_input_ch = Channel
-  .fromPath( params.illumina, checkIfExists: true )
-  .splitCsv()
-  .map { row -> ["${row[0]}", [file("${row[1]}", checkIfExists: true), file("${row[2]}", checkIfExists: true)]] }
-  .view() }
-  else if (params.illumina) { illumina_input_ch = Channel
-  .fromFilePairs( params.illumina , checkIfExists: true )
-  .view() 
-}
+    .fromPath( params.illumina, checkIfExists: true )
+    .splitCsv()
+    .map { row -> ["${row[0]}", [file("${row[1]}", checkIfExists: true), file("${row[2]}", checkIfExists: true)]] }
+    .view() }
+else if (params.illumina) { illumina_input_ch = Channel
+    .fromFilePairs( params.illumina , checkIfExists: true )
+    .view() }
+
+// template channel
+if (params.illumina && params.list) { template_input_ch = Channel
+    .fromPath( params.illumina, checkIfExists: true)
+    .splitCsv()
+    .map { row -> ["${row[0]}"] }
+    .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+    .view() }
+else if (params.illumina && !params.list) { template_input_ch = Channel
+    .fromPath( params.illumina, checkIfExists: true)
+    .map { file -> (file.simpleName) }
+    .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+    .view() }
+
+
 
 /************************** 
 * MODULES
@@ -70,32 +91,20 @@ if (params.illumina && params.list) { illumina_input_ch = Channel
 
 /* Comment section: */
 
-include './modules/get_db' params(cloudProcess: params.cloudProcess, cloudDatabase: params.cloudDatabase)
-include './modules/module1' params(output: params.output, variable1: params.variable1)
-include './modules/module2' params(output: params.output, variable2: params.variable2)
+include './modules/experiment_template_single' params(output: params.output)
+include './modules/experiment_template_single_collect' params(output: params.output)
+include './modules/experiment_template_paired' params(output: params.output)
+include './modules/experiment_template_paired_collect' params(output: params.output)
+include './modules/md5sum_paired_entry' 
+include './modules/md5sum_single_entry' 
+include './modules/validate_paired_fastq' params(output: params.output)
+include './modules/validate_single_fastq' params(output: params.output)
 
+// template specific modules here
+include './modules/create_input_wastewater_sludge' params(output: params.output)
+include './modules/sample_template_wastewater_sludge' params(output: params.output)
+include './modules/sample_template_wastewater_sludge_collect' params(output: params.output)
 
-/************************** 
-* DATABASES
-**************************/
-
-/* Comment section:
-The Database Section is designed to "auto-get" pre prepared databases.
-It is written for local use and cloud use via params.cloudProcess.
-*/
-
-workflow download_db {
-  main:
-    // local storage via storeDir
-    if (!params.cloudProcess) { example_db(); db = example_db.out }
-    // cloud storage via db_preload.exists()
-    if (params.cloudProcess) {
-      db_preload = file("${params.cloudDatabase}/test_db/Chlamydia_gallinacea_08_1274_3.ASM47102v2.dna.toplevel.fa.gz")
-      if (db_preload.exists()) { db = db_preload }
-      else  { example_db(); db = example_db.out } 
-    }
-  emit: db
-}
 
 
 /************************** 
@@ -104,14 +113,44 @@ workflow download_db {
 
 /* Comment section: */
 
-workflow subworkflow_1 {
+workflow wf_nanopore_experiment_template {
   get: 
     nano_input_ch
-    db
-
   main:
-    module2(module1(nano_input_ch, db))
+    md5sum_single_entry(nano_input_ch)
+    experiment_template_single_collect(experiment_template_single(md5sum_single_entry.out).toList())
 } 
+
+workflow wf_illumina_experiment_template {
+  get: 
+    illumina_input_ch
+  main:
+    md5sum_paired_entry(illumina_input_ch)
+    experiment_template_paired_collect(experiment_template_paired(md5sum_paired_entry.out).toList())
+} 
+
+workflow wf_validate_single_fastq {
+  get: 
+    nano_input_ch
+  main:
+    validate_single_fastq(nano_input_ch)
+} 
+
+workflow wf_validate_paired_fastq {
+  get: 
+    illumina_input_ch
+  main:
+    validate_paired_fastq(illumina_input_ch)
+} 
+
+workflow wf_create_template_wastewater_sludge {
+  get: 
+    template_input_ch
+  main:
+    sample_template_header_metagenome(sample_template_wastewater_sludge(template_input_ch).toList())
+} 
+
+
 
 /************************** 
 * WORKFLOW ENTRY POINT
@@ -120,11 +159,20 @@ workflow subworkflow_1 {
 /* Comment section: */
 
 workflow {
-      download_db()
-      db = download_db.out
-      if (params.nano && !params.illumina) { 
-        subworkflow_1(nano_input_ch, db)
-      }
+    // valiate fastq's
+      if (params.nano && !params.illumina && params.template) { wf_validate_single_fastq(nano_input_ch) }
+      if (!params.nano && params.illumina && params.template) { wf_validate_paired_fastq(illumina_input_ch) }
+    // create experiment templates
+      if (params.nano && !params.illumina && params.template) { wf_nanopore_experiment_template(nano_input_ch) }
+      if (!params.nano && params.illumina && params.template) { wf_illumina_experiment_template(illumina_input_ch) }
+
+
+    // params depended sample input template
+      // -- wastewater_sludge
+      if ( (params.nano || params.illumina) && params.template && params.wastewater_sludge) { 
+          wf_create_template_wastewater_sludge(template_input_ch) }
+      if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
+      // -- metagenome
 }
 
 
@@ -140,15 +188,45 @@ def helpMSG() {
     log.info """
     ____________________________________________________________________________________________
     
-    Workflow: Template
-    
-    ${c_yellow}Usage example:${c_reset}
-    nextflow run wf_template --nano '*/*.fastq' 
+    Workflow: ENA Template generator
 
-    ${c_yellow}Input:${c_reset}
-    ${c_green} --nano ${c_reset}            '*.fasta' or '*.fastq.gz'   -> one sample per file
-    ${c_green} --illumina ${c_reset}        '*.R{1,2}.fastq.gz'         -> file pairs
-    ${c_dim}  ..change above input to csv:${c_reset} ${c_green}--list ${c_reset}            
+    How to use it:
+
+    Step 1: Choose a sample template, and create INPUT_FORM.txt:
+       ${c_yellow}nextflow run main.nf --wastewater_sludge${c_reset} 
+
+    Step 2: adjust the input form (located in ${params.output}/INPUT_FORM.txt)
+
+    Step 3: create now templates for ENA by adding reads, sample type and template file:
+      ${c_yellow}nextflow run main.nf --nano '*.fastq.gz' --wastewater_sludge --template ${params.output}/INPUT_FORM.txt${c_reset} 
+    
+    Step 4: upload reads via ${c_yellow}ftp webin.ebi.ac.uk${c_reset} 
+    ${c_dim}Hint: The workflow creates "${params.output}/*_ENA_qc_check.txt" files if the fastq is corrupt.${c_reset}
+
+    Step 5: register a PROJECT on ENA
+
+    Step 6: "Submit sequence reads and experiments" -> "next" -> click on your project -> "next"
+
+    Step 7: click on "Submit Completed Spreadsheet" an upload ${params.output}/sample_template.tsv -> "next"
+
+    Step 8: click on "Oxford Nanopore" or "Two Fastq files (Paired)" -> "Upload Completed Spreadsheet"
+
+    Step 9: check that "[Sample reference suggestions]" is correctly linking to your reads, select missing inputs. DONE
+
+
+    ${c_yellow}Usage example:${c_reset}
+    
+
+    ${c_yellow}Sample:${c_reset}
+    ${c_green} --nano ${c_reset}            '*.fastq.gz'         -> one sample per file
+    ${c_green} --illumina ${c_reset}        '*.R{1,2}.fastq.gz'  -> file pairs
+    ${c_dim}  ..change above input to csv:${c_reset} ${c_green}--list ${c_reset}
+
+    ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your template file         
+
+    ${c_yellow}Sample templates:${c_reset}
+    --wastewater_sludge
+
 
     ${c_yellow}Options:${c_reset}
     --cores             max cores for local use [default: $params.cores]
