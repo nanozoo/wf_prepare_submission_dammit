@@ -10,6 +10,10 @@ process md5sum_single_entry {
 
   script:
     """
-    md5sum ${read}  > ${name}_single.checksum
+    if hash md5sum 2>/dev/null; then
+      md5sum ${read}  > ${name}_single.checksum
+    else
+      md5 ${read}  > ${name}_single.checksum
+    fi
     """
 }
