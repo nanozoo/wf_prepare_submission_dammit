@@ -162,17 +162,23 @@ workflow {
     // valiate fastq's
       if (params.nano && !params.illumina && params.template) { wf_validate_single_fastq(nano_input_ch) }
       if (!params.nano && params.illumina && params.template) { wf_validate_paired_fastq(illumina_input_ch) }
-    // create experiment templates
-      if (params.nano && !params.illumina && params.template) { wf_nanopore_experiment_template(nano_input_ch) }
-      if (!params.nano && params.illumina && params.template) { wf_illumina_experiment_template(illumina_input_ch) }
 
+      if (params.xml) {
 
-    // params depended sample input template
-      // -- wastewater_sludge
-      if ( (params.nano || params.illumina) && params.template && params.wastewater_sludge) { 
-          wf_create_template_wastewater_sludge(template_input_ch) }
-      if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
-      // -- metagenome
+      }
+      else {
+        // create experiment templates
+        if (params.nano && !params.illumina && params.template) { wf_nanopore_experiment_template(nano_input_ch) }
+        if (!params.nano && params.illumina && params.template) { wf_illumina_experiment_template(illumina_input_ch) }
+ 
+        // params depended sample input template
+        // -- wastewater_sludge
+        if ( (params.nano || params.illumina) && params.template && params.wastewater_sludge) { 
+            wf_create_template_wastewater_sludge(template_input_ch) }
+        if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
+       // -- metagenome
+       
+      }
 }
 
 
@@ -234,8 +240,7 @@ def helpMSG() {
     --output            name of the result folder [default: $params.output]
 
     ${c_yellow}Parameters:${c_reset}
-    --variable1             a variable [default: $params.variable1]
-    --variable2             a variable [default: $params.variable2]
+    --xml               generate XMLs for submission [default: $params.xml]
 
     ${c_dim}Nextflow options:
     -with-report rep.html    cpu / ram usage (may cause errors)
