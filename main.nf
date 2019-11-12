@@ -36,7 +36,7 @@ println " "}
 
 if (params.profile) { exit 1, "--profile is WRONG use -profile" }
 //if (params.nano == '' &&  params.illumina == '' ) { exit 1, "input missing, use [--nano] or [--illumina]"}
-if (params.xml && params.yml == '') { exit 1, "--yml is required if XML output is activated" }
+//if (params.xml && params.yml == '') { exit 1, "--yml is required if XML output is activated" }
 
 /************************** 
 * READ FILE INPUT CHANNELS
@@ -62,6 +62,8 @@ if (params.illumina && params.list) { illumina_input_ch = Channel
 else if (params.illumina) { illumina_input_ch = Channel
     .fromFilePairs( params.illumina , checkIfExists: true )
     .view() }
+
+
 
 /************************** 
 * INPUT CHANNELS TEMPLATES
@@ -100,6 +102,7 @@ if (!params.xml) {
 * XML
 ********/
 
+/*
 if (params.xml) {
     // nanopore based templates
   if (params.nano) { template_input_ch = Channel
@@ -125,6 +128,7 @@ if (params.xml) {
       .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
       .view() }
 }
+*/
 
 /************************** 
 * MODULES
@@ -151,6 +155,9 @@ include './modules/tsv_template_wastewater/sample_template_wastewater_sludge_col
 
 // xml stuff
 include './modules/xml_get_study' params(output: params.output)
+
+// XML TEMPLATE BASIC
+include './modules/create_input_basic_yml' params(output: params.output)
 
 
 /************************** 
@@ -219,15 +226,16 @@ workflow {
 
     // WIP Martin XML support
       if (params.xml) {
-        if (params.nano && !params.illumina) { wf_validate_single_fastq(nano_input_ch) }
-        if (!params.nano && params.illumina) { wf_validate_paired_fastq(illumina_input_ch) }
-
-        yml = file(params.yml)
-        script = file('scripts/parse_yml.sh')
-        xml(yml, script)
-
-
-
+        if (params.yml) { 
+          yml = file(params.yml)
+          script = file('scripts/parse_yml.sh')
+          xml(yml, script)
+        }
+        else {
+          if (params.nano && !params.illumina) { wf_validate_single_fastq(nano_input_ch) }
+          if (!params.nano && params.illumina) { wf_validate_paired_fastq(illumina_input_ch) }
+          if (!params.template && params.basic) { create_input_basic_yml(nano_input_ch.join(md5sum_single_entry(nano_input_ch)), illumina_input_ch.join(md5sum_paired_entry(illumina_input_ch))) }
+        }
       }
     // Christian TSV support
       else {
@@ -291,8 +299,9 @@ def helpMSG() {
 
     __WIP__ XML example execution:
 
+    nextflow run main.nf --basic --nano data/h52_nanopore.fastq.gz --illumina 'data/h52_miseq*.R{1,2}.fastq.gz'
     nextflow run main.nf --basic --xml --yml results/INPUT_FORM.yml --nano data/some.fasta --illumina 'data/some_illumina_pe/sample1*.R{1,2}*.gz'
-
+    
     ${c_yellow}Usage example:${c_reset}
     
 
