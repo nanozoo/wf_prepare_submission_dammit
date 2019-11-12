@@ -346,7 +346,7 @@ How to use the TSV files for ENA upload, step-by-step:
 
     Step 1: upload your reads via ${c_yellow}ftp webin.ebi.ac.uk${c_reset} 
       ${c_dim}Hint: The workflow creates "${params.output}/*_ENA_qc_check.txt" files if a fastq is corrupt.${c_reset}
-      ${c_dim}After ftp you ususally do "prompt" and "mput *.fastq.gz" to upload read files to ENA${c_reset}
+      ${c_dim}After the ftp login you do "prompt" and then "mput *.fastq.gz" to upload read files to ENA${c_reset}
 
     Step 2: Register a PROJECT on ENA (if you dont have one)
 
@@ -355,7 +355,7 @@ How to use the TSV files for ENA upload, step-by-step:
     Step 4: Click on "Submit Completed Spreadsheet" an upload ${params.output}/sample_template.tsv -> "next"
       ${c_dim}Hint: You now can still adjust sample parameters ${c_reset}
 
-    Step 5: click on "Oxford Nanopore" or "Two Fastq files (Paired)" -> "Upload Completed Spreadsheet" ${params.output}/experiment_template.tsv
+    Step 5: click on "Oxford Nanopore" or "Two Fastq files (Paired)" -> "Upload Completed Spreadsheet" from ${params.output}/experiment_template.tsv
       ${c_dim}Hint: You now can still adjust parameters or fill missing informations ${c_reset}
 
 

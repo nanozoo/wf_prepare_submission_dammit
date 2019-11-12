@@ -46,29 +46,36 @@ Email: christian@nanozoo.org || martin@nanozoo.org
 
 # How to use it:
 
-```bash
-    Step 1: Choose a sample template, and create INPUT_FORM.txt:
-       ${c_yellow}nextflow run main.nf --wastewater_sludge${c_reset} 
+```help
+This Workflow contains two possible upload types. 
 
-    Step 2: adjust the input form (located in ${params.output}/INPUT_FORM.txt)
+      TSV tables  (ready to use templates during the graphical ENA webinterface)
+      XML files  (command line subbmission of samples/experiments via upload)
+    _____________________________
 
-    Step 3: create now templates for ENA by adding reads, sample type and template file:
-      ${c_yellow}nextflow run main.nf --nano '*.fastq.gz' --wastewater_sludge --template ${params.output}/INPUT_FORM.txt${c_reset} 
+    TSV TABLES GENERATOR
     
-    Step 4: upload reads via ${c_yellow}ftp webin.ebi.ac.uk${c_reset} 
-    ${c_dim}Hint: The workflow creates "${params.output}/*_ENA_qc_check.txt" files if the fastq is corrupt.${c_reset}
+    Step 1: Choose a sample template and fill out the INPUT_FORM.txt
+              nextflow run main.nf --wastewater_sludge
+            Hint: file is located in results/INPUT_FORM.txt
 
-    Step 5: register a PROJECT on ENA
+    Step 2: create ENA tsv templates for file submission 
+              nextflow run main.nf --nano '*.fastq.gz' --wastewater_sludge --template results/INPUT_FORM.txt
+            Hint: needs read files (--nano '*.fastq.gz' or --illumina '*.R{1,2}.fastq.gz')
+                          the sample template type (e.g. --wastewater_sludge)
+                          and --template results/INPUT_FORM.txt
 
-    Step 6: "Submit sequence reads and experiments" -> "next" -> click on your project -> "next"
+    Step 3: Upload everything to ENA (help available via nextflow run main.nf --help4ENA) 
+            Hint: you can still adjust the tsv tables now
+    _____________________________
 
-    Step 7: click on "Submit Completed Spreadsheet" an upload ${params.output}/sample_template.tsv -> "next"
+    __WIP__ XML GENERATOR:
 
-    Step 8: click on "Oxford Nanopore" or "Two Fastq files (Paired)" -> "Upload Completed Spreadsheet"
+    nextflow run main.nf --basic --nano data/h52_nanopore.fastq.gz --illumina 'data/h52_miseq*.R{1,2}.fastq.gz'
+    nextflow run main.nf --basic --xml --yml results/INPUT_FORM.yml --nano data/some.fasta --illumina 'data/some_illumina_pe/sample1*.R{1,2}*.gz'
 
-    Step 9: check that "[Sample reference suggestions]" is correctly linking to your reads, select missing inputs. DONE
 ```
 
 
-# Flowchart
+# Flowchart TSV
 ![chart](figures/chart.png)
