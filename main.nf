@@ -19,7 +19,7 @@ to add csv instead. name,path   or name,pathR1,pathR2 in case of illumina
 
 // terminal prints
 if (params.help) { exit 0, helpMSG() }
-
+if (params.help4ENA) { exit 0, helpMSGENA() }
 println " "
 println "\u001B[32mProfile: $workflow.profile\033[0m"
 println " "
@@ -272,65 +272,56 @@ def helpMSG() {
     log.info """
     ____________________________________________________________________________________________
     
-    Workflow: ENA Template generator
+    This Workflow contains two possible upload types. 
 
-    How to use it:
+      ${c_green}TSV tables${c_reset}  (ready to use templates during the graphical ENA webinterface)
+      ${c_blue}XML files${c_reset}  (command line subbmission of samples/experiments via upload)
+    _____________________________
 
-    Step 1: Choose a sample template, and create INPUT_FORM.txt:
-       ${c_yellow}nextflow run main.nf --wastewater_sludge${c_reset} 
-
-    Step 2: adjust the input form (located in ${params.output}/INPUT_FORM.txt)
-
-    Step 3: create now templates for ENA by adding reads, sample type and template file:
-      ${c_yellow}nextflow run main.nf --nano '*.fastq.gz' --wastewater_sludge --template ${params.output}/INPUT_FORM.txt${c_reset} 
+    ${c_green}TSV TABLES GENERATOR
     
-    Step 4: upload reads via ${c_yellow}ftp webin.ebi.ac.uk${c_reset} 
-    ${c_dim}Hint: The workflow creates "${params.output}/*_ENA_qc_check.txt" files if the fastq is corrupt.${c_reset}
+    Step 1:${c_reset} Choose a sample template and fill out the INPUT_FORM.txt
+            ${c_yellow}nextflow run main.nf --wastewater_sludge${c_reset} 
+            ${c_dim}Hint: file is located in ${params.output}/INPUT_FORM.txt
 
-    Step 5: register a PROJECT on ENA
+    ${c_green}Step 2:${c_reset} create ENA tsv templates for file submission 
+            ${c_yellow}nextflow run main.nf --nano '*.fastq.gz' --wastewater_sludge --template ${params.output}/INPUT_FORM.txt${c_reset} 
+            ${c_dim}Hint: needs read files (--nano '*.fastq.gz' or --illumina '*.R{1,2}.fastq.gz')
+                          the sample template type (e.g. --wastewater_sludge)
+                          and --template ${params.output}/INPUT_FORM.txt
 
-    Step 6: "Submit sequence reads and experiments" -> "next" -> click on your project -> "next"
+    ${c_green}Step 3:${c_reset} Upload everything to ENA (help available via ${c_yellow}nextflow run main.nf --help4ENA${c_reset}) 
+            ${c_dim}Hint: you can still adjust the tsv tables now ${c_reset}
+    _____________________________
 
-    Step 7: click on "Submit Completed Spreadsheet" an upload ${params.output}/sample_template.tsv -> "next"
-
-    Step 8: click on "Oxford Nanopore" or "Two Fastq files (Paired)" -> "Upload Completed Spreadsheet"
-
-    Step 9: check that "[Sample reference suggestions]" is correctly linking to your reads, select missing inputs. DONE
-
-    __WIP__ XML example execution:
+    ${c_blue}__WIP__ XML GENERATOR:${c_reset}
 
     nextflow run main.nf --basic --nano data/h52_nanopore.fastq.gz --illumina 'data/h52_miseq*.R{1,2}.fastq.gz'
     nextflow run main.nf --basic --xml --yml results/INPUT_FORM.yml --nano data/some.fasta --illumina 'data/some_illumina_pe/sample1*.R{1,2}*.gz'
-    
-    ${c_yellow}Usage example:${c_reset}
-    
 
-    ${c_yellow}Sample:${c_reset}
+    _____________________________
+  
+
+    ${c_yellow}READ INPUTS:${c_reset}
     ${c_green} --nano ${c_reset}            '*.fastq.gz'         -> one sample per file
     ${c_green} --illumina ${c_reset}        '*.R{1,2}.fastq.gz'  -> file pairs
     ${c_dim}  ..change above input to csv:${c_reset} ${c_green}--list ${c_reset}
     ${c_green} --yml ${c_reset}             '*.yml'  -> one file per study
-  
-    ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your template file   
-    ${c_green} --skipval ${c_reset}          skips file validation
+    ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your user input file   
+ 
+
 
     ${c_yellow}Sample templates:${c_reset}
     --basic
     --wastewater_sludge
 
-
     ${c_yellow}Options:${c_reset}
     --cores             max cores for local use [default: $params.cores]
-    --memory            max memory for local use [default: $params.memory]
     --output            name of the result folder [default: $params.output]
+    --skipval           skips file validation (not mandatory for template creation)
 
     ${c_yellow}Parameters:${c_reset}
     --xml               generate XMLs for submission [default: $params.xml]
-
-    ${c_dim}Nextflow options:
-    -with-report rep.html    cpu / ram usage (may cause errors)
-    -with-dag chart.html     generates a flowchart for the process tree
-    -with-timeline time.html timeline (may cause errors)
 
     Profile:
     -profile                 standard (local, pure docker) [default]
@@ -341,4 +332,32 @@ def helpMSG() {
                              gcloudMartin (googlegenomics and docker)
                              ${c_reset}
     """.stripIndent()
+}
+
+def helpMSGENA() {
+    c_green = "\033[0;32m";
+    c_reset = "\033[0m";
+    c_yellow = "\033[0;33m";
+    c_blue = "\033[0;34m";
+    c_dim = "\033[2m";
+log.info """
+.
+How to use the TSV files for ENA upload, step-by-step:
+
+    Step 1: upload your reads via ${c_yellow}ftp webin.ebi.ac.uk${c_reset} 
+      ${c_dim}Hint: The workflow creates "${params.output}/*_ENA_qc_check.txt" files if a fastq is corrupt.${c_reset}
+      ${c_dim}After ftp you ususally do "prompt" and "mput *.fastq.gz" to upload read files to ENA${c_reset}
+
+    Step 2: Register a PROJECT on ENA (if you dont have one)
+
+    Step 3: "Submit sequence reads and experiments" -> "next" -> click on your project -> "next"
+
+    Step 4: Click on "Submit Completed Spreadsheet" an upload ${params.output}/sample_template.tsv -> "next"
+      ${c_dim}Hint: You now can still adjust sample parameters ${c_reset}
+
+    Step 5: click on "Oxford Nanopore" or "Two Fastq files (Paired)" -> "Upload Completed Spreadsheet" ${params.output}/experiment_template.tsv
+      ${c_dim}Hint: You now can still adjust parameters or fill missing informations ${c_reset}
+
+
+""".stripIndent()
 }
