@@ -39,7 +39,7 @@ if (params.profile) { exit 1, "--profile is WRONG use -profile" }
 if (params.xml && params.yml == '') { exit 1, "--yml is required if XML output is activated" }
 
 /************************** 
-* INPUT CHANNELS 
+* READ FILE INPUT CHANNELS
 **************************/
 
 // nanopore reads input & --list support
@@ -51,24 +51,7 @@ if (params.nano && params.list) { nano_input_ch = Channel
 else if (params.nano) { nano_input_ch = Channel
     .fromPath( params.nano, checkIfExists: true)
     .map { file -> tuple(file.simpleName, file) }
-    .view()
-// template channel
-//elseif list missing
-if (params.xml) {
-  if (params.nano) { template_input_ch = Channel
-      .fromPath( params.nano, checkIfExists: true)
-      .map { file -> (file.simpleName) }
-      .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
-      .view() }
-  }
-else {
-  if (params.nano) { template_input_ch = Channel
-      .fromPath( params.nano, checkIfExists: true)
-      .map { file -> (file.simpleName) }
-      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
-      .view() }
-  }
-}
+    .view() }
 
 // illumina reads input & --list support
 if (params.illumina && params.list) { illumina_input_ch = Channel
@@ -80,34 +63,68 @@ else if (params.illumina) { illumina_input_ch = Channel
     .fromFilePairs( params.illumina , checkIfExists: true )
     .view() }
 
-// template channel
-if (params.xml) {
-if (params.illumina && params.list) { template_input_ch = Channel
-    .fromPath( params.illumina, checkIfExists: true)
-    .splitCsv()
-    .map { row -> ["${row[0]}"] }
-    .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
-    .view() }
-else if (params.illumina && !params.list) { template_input_ch = Channel
-    .fromPath( params.illumina, checkIfExists: true)
-    .map { file -> (file.simpleName) }
-    .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
-    .view() }
-}
-else {
-if (params.illumina && params.list) { template_input_ch = Channel
-    .fromPath( params.illumina, checkIfExists: true)
-    .splitCsv()
-    .map { row -> ["${row[0]}"] }
-    .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
-    .view() }
-else if (params.illumina && !params.list) { template_input_ch = Channel
-    .fromPath( params.illumina, checkIfExists: true)
-    .map { file -> (file.simpleName) }
-    .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
-    .view() }
+/************************** 
+* INPUT CHANNELS TEMPLATES
+**************************/
+/******** 
+* TSV
+********/
+
+if (!params.xml) {
+  // nanopore based templates
+  if (params.nano) { template_input_ch = Channel
+      .fromPath( params.nano, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+      .view() }
+  else if (params.nano && !params.list) { template_input_ch = Channel
+      .fromPath( params.nano, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+      .view() }
+  // illumina based templates
+  if (params.illumina && params.list) { template_input_ch = Channel
+      .fromPath( params.illumina, checkIfExists: true)
+      .splitCsv()
+      .map { row -> ["${row[0]}"] }
+      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+      .view() }
+  else if (params.illumina && !params.list) { template_input_ch = Channel
+      .fromPath( params.illumina, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+      .view() }
 }
 
+/******** 
+* XML
+********/
+
+if (params.xml) {
+    // nanopore based templates
+  if (params.nano) { template_input_ch = Channel
+      .fromPath( params.nano, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
+      .view() }
+  else if (params.nano && !params.list) { template_input_ch = Channel
+      .fromPath( params.nano, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+      .view() }
+  // illumina based templates
+  if (params.illumina && params.list) { template_input_ch = Channel
+      .fromPath( params.illumina, checkIfExists: true)
+      .splitCsv()
+      .map { row -> ["${row[0]}"] }
+      .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
+      .view() }
+  else if (params.illumina && !params.list) { template_input_ch = Channel
+      .fromPath( params.illumina, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
+      .view() }
+}
 
 /************************** 
 * MODULES
@@ -124,12 +141,13 @@ include './modules/md5sum_single_entry'
 include './modules/validate_paired_fastq' params(output: params.output)
 include './modules/validate_single_fastq' params(output: params.output)
 
-// template specific modules here
-include './modules/create_input_basic' params(output: params.output)
+// TSV TEMPLATE BASIC
+include './modules/tsv_template_basic/create_input_basic' params(output: params.output)
 
-include './modules/create_input_wastewater_sludge' params(output: params.output)
-include './modules/sample_template_wastewater_sludge' params(output: params.output)
-include './modules/sample_template_wastewater_sludge_collect' params(output: params.output)
+// TSV TEMPLATE WASTEWATER SOIL
+include './modules/tsv_template_wastewater/create_input_wastewater_sludge' params(output: params.output)
+include './modules/tsv_template_wastewater/sample_template_wastewater_sludge' params(output: params.output)
+include './modules/tsv_template_wastewater/sample_template_wastewater_sludge_collect' params(output: params.output)
 
 // xml stuff
 include './modules/xml_get_study' params(output: params.output)
@@ -196,10 +214,10 @@ workflow xml {
 
 workflow {
     // valiate fastq's
-      if (params.nano && !params.illumina && params.template) { wf_validate_single_fastq(nano_input_ch) }
-      if (!params.nano && params.illumina && params.template) { wf_validate_paired_fastq(illumina_input_ch) }
+      if (params.nano && !params.illumina && params.template && !params.skipval) { wf_validate_single_fastq(nano_input_ch) }
+      if (!params.nano && params.illumina && params.template && !params.skipval) { wf_validate_paired_fastq(illumina_input_ch) }
 
-      // WIP Martin XML support
+    // WIP Martin XML support
       if (params.xml) {
         if (params.nano && !params.illumina) { wf_validate_single_fastq(nano_input_ch) }
         if (!params.nano && params.illumina) { wf_validate_paired_fastq(illumina_input_ch) }
@@ -211,21 +229,24 @@ workflow {
 
 
       }
-      // Christian TSV support
+    // Christian TSV support
       else {
-        // create experiment templates
+        // create user input form (depending on the user flag)
+        if (!params.template && params.basic) { create_input_basic() }
+        if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
+
+        // create experiment template
         if (params.nano && !params.illumina && params.template) { wf_nanopore_experiment_template(nano_input_ch) }
         if (!params.nano && params.illumina && params.template) { wf_illumina_experiment_template(illumina_input_ch) }
  
-        // params depended sample input template
-        // -- wastewater_sludge
-        if ( (params.nano || params.illumina) && params.template && params.wastewater_sludge) { 
-            wf_create_template_wastewater_sludge(template_input_ch) }
+        // create sample template (depending on the user flag)
+          // -- wastewater_sludge
+          if ( (params.nano || params.illumina) && params.template && params.wastewater_sludge) { 
+              wf_create_template_wastewater_sludge(template_input_ch) }
+          // -- metagenome
 
-        // create input templates
-        if (!params.template && params.basic) { create_input_basic(nano_input_ch) }
-        if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
-       // -- metagenome
+
+      
 
       }
 }
@@ -281,7 +302,8 @@ def helpMSG() {
     ${c_dim}  ..change above input to csv:${c_reset} ${c_green}--list ${c_reset}
     ${c_green} --yml ${c_reset}             '*.yml'  -> one file per study
   
-    ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your template file         
+    ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your template file   
+    ${c_green} --skipval ${c_reset}          skips file validation
 
     ${c_yellow}Sample templates:${c_reset}
     --basic
