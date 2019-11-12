@@ -54,11 +54,20 @@ else if (params.nano) { nano_input_ch = Channel
     .view()
 // template channel
 //elseif list missing
-if (params.nano) { template_input_ch = Channel
-    .fromPath( params.nano, checkIfExists: true)
-    .map { file -> (file.simpleName) }
-    .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
-    .view() }
+if (params.xml) {
+  if (params.nano) { template_input_ch = Channel
+      .fromPath( params.nano, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
+      .view() }
+  }
+else {
+  if (params.nano) { template_input_ch = Channel
+      .fromPath( params.nano, checkIfExists: true)
+      .map { file -> (file.simpleName) }
+      .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
+      .view() }
+  }
 }
 
 // illumina reads input & --list support
@@ -72,6 +81,20 @@ else if (params.illumina) { illumina_input_ch = Channel
     .view() }
 
 // template channel
+if (params.xml) {
+if (params.illumina && params.list) { template_input_ch = Channel
+    .fromPath( params.illumina, checkIfExists: true)
+    .splitCsv()
+    .map { row -> ["${row[0]}"] }
+    .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
+    .view() }
+else if (params.illumina && !params.list) { template_input_ch = Channel
+    .fromPath( params.illumina, checkIfExists: true)
+    .map { file -> (file.simpleName) }
+    .combine( tmp_ch = Channel.fromPath(params.yml, checkIfExists: true ))
+    .view() }
+}
+else {
 if (params.illumina && params.list) { template_input_ch = Channel
     .fromPath( params.illumina, checkIfExists: true)
     .splitCsv()
@@ -83,7 +106,7 @@ else if (params.illumina && !params.list) { template_input_ch = Channel
     .map { file -> (file.simpleName) }
     .combine( tmp_ch = Channel.fromPath(params.template, checkIfExists: true ))
     .view() }
-
+}
 
 
 /************************** 
@@ -102,6 +125,8 @@ include './modules/validate_paired_fastq' params(output: params.output)
 include './modules/validate_single_fastq' params(output: params.output)
 
 // template specific modules here
+include './modules/create_input_basic' params(output: params.output)
+
 include './modules/create_input_wastewater_sludge' params(output: params.output)
 include './modules/sample_template_wastewater_sludge' params(output: params.output)
 include './modules/sample_template_wastewater_sludge_collect' params(output: params.output)
@@ -174,11 +199,19 @@ workflow {
       if (params.nano && !params.illumina && params.template) { wf_validate_single_fastq(nano_input_ch) }
       if (!params.nano && params.illumina && params.template) { wf_validate_paired_fastq(illumina_input_ch) }
 
+      // WIP Martin XML support
       if (params.xml) {
+        if (params.nano && !params.illumina) { wf_validate_single_fastq(nano_input_ch) }
+        if (!params.nano && params.illumina) { wf_validate_paired_fastq(illumina_input_ch) }
+
         yml = file(params.yml)
         script = file('scripts/parse_yml.sh')
         xml(yml, script)
+
+
+
       }
+      // Christian TSV support
       else {
         // create experiment templates
         if (params.nano && !params.illumina && params.template) { wf_nanopore_experiment_template(nano_input_ch) }
@@ -188,6 +221,9 @@ workflow {
         // -- wastewater_sludge
         if ( (params.nano || params.illumina) && params.template && params.wastewater_sludge) { 
             wf_create_template_wastewater_sludge(template_input_ch) }
+
+        // create input templates
+        if (!params.template && params.basic) { create_input_basic(nano_input_ch) }
         if (!params.template && params.wastewater_sludge) { create_input_wastewater_sludge() }
        // -- metagenome
 
@@ -234,8 +270,7 @@ def helpMSG() {
 
     __WIP__ XML example execution:
 
-    nextflow run main.nf --nano 'data/some.fasta' --wastewater_sludge --template results/INPUT_FORM.txt --xml --yml ../../../Dropbox/yaml/input.yml
-
+    nextflow run main.nf --basic --xml --yml results/INPUT_FORM.yml --nano data/some.fasta --illumina 'data/some_illumina_pe/sample1*.R{1,2}*.gz'
 
     ${c_yellow}Usage example:${c_reset}
     
@@ -249,6 +284,7 @@ def helpMSG() {
     ${c_green} --template ${c_reset}        '${params.output}/INPUT_FORM.txt' -> location of your template file         
 
     ${c_yellow}Sample templates:${c_reset}
+    --basic
     --wastewater_sludge
 
 
