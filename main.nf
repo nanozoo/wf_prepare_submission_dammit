@@ -157,7 +157,7 @@ include './modules/tsv_template_wastewater/sample_template_wastewater_sludge_col
 include './modules/xml_get_study' params(output: params.output)
 
 // XML TEMPLATE BASIC
-include './modules/create_input_basic_yml' params(output: params.output)
+include './modules/yml_template_basic/create_input_basic_yml' params(output: params.output)
 
 
 /************************** 
@@ -234,7 +234,12 @@ workflow {
         else {
           if (params.nano && !params.illumina) { wf_validate_single_fastq(nano_input_ch) }
           if (!params.nano && params.illumina) { wf_validate_paired_fastq(illumina_input_ch) }
-          if (!params.template && params.basic) { create_input_basic_yml(nano_input_ch.join(md5sum_single_entry(nano_input_ch)), illumina_input_ch.join(md5sum_paired_entry(illumina_input_ch))) }
+          if (params.basic) { 
+            create_input_basic_yml(illumina_input_ch.flatten().toList(), 
+              md5sum_paired_entry(illumina_input_ch).flatten().toList(), 
+              nano_input_ch.flatten().toList(), 
+              md5sum_single_entry(nano_input_ch).flatten().toList()) 
+          }
         }
       }
     // Christian TSV support
@@ -299,8 +304,11 @@ def helpMSG() {
 
     __WIP__ XML example execution:
 
-    nextflow run main.nf --basic --nano data/h52_nanopore.fastq.gz --illumina 'data/h52_miseq*.R{1,2}.fastq.gz'
-    nextflow run main.nf --basic --xml --yml results/INPUT_FORM.yml --nano data/some.fasta --illumina 'data/some_illumina_pe/sample1*.R{1,2}*.gz'
+    Step 1:
+    nextflow run main.nf --xml --basic --illumina 'data/h5*.R{1,2}.fastq.gz' --nano data/h52_nanopore.fastq.gz
+    
+    Step 2: 
+    nextflow run main.nf --basic --xml --yml results/INPUT_FORM.yml
     
     ${c_yellow}Usage example:${c_reset}
     

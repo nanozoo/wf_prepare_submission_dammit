@@ -5,8 +5,12 @@ process create_input_basic_yml {
   publishDir "${params.output}/", mode: 'copy', pattern: "INPUT_FORM.yml"
   
   input:
-    tuple val(nano_name), file(nano_reads), file(nano_md5)
-    tuple val(illumina_name), file(illumina_reads), file(illumina_md5)
+    file(illumina_file_list)
+    file(illumina_md5_list)
+    file(nanopore_file_list)
+    file(nanopore_md5_list)
+    //tuple val(nano_name), file(nano_reads), file(nano_md5)
+    //tuple val(illumina_name), file(illumina_reads), file(illumina_md5)
 
   output:
     file("INPUT_FORM.yml")
@@ -28,27 +32,11 @@ samples:
 EOF
 
 # SAMPLE
-for FILE in \$(ls ${nano_reads}); do
+for FILE in \$(ls *R1*.gz); do
+BN=\$(basename \${FILE} .R1.fastq.gz)
 cat >>INPUT_FORM.yml <<EOF
   sample_set:
-    alias: '${nano_name}'
-    title: 'SAMPLE_TITLE'
-    sample_name: 
-      taxon_id: 'ID, see standard taxonomies: https://ena-docs.readthedocs.io/en/latest/faq/taxonomy.html and environmental taxonomies: https://ena-docs.readthedocs.io/en/latest/faq/taxonomy.html#environmental-taxonomic-classifications'
-      scientific_name: 'NAME ACCORDING TO taxon_id'
-    sample_attributes:
-      sample_attribute:
-        tag: 'collection date'
-        value: 'yyyy-mm-dd'
-      sample_attribute:
-        tag: 'sequencing method'
-        value: 'Oxford Nanopore Technologies'
-EOF
-done
-for FILE in \$(ls ${illumina_name}*R1*); do
-cat >>INPUT_FORM.yml <<EOF
-  sample_set:
-    alias: '${illumina_name}'
+    alias: '\${BN}'
     title: 'SAMPLE_TITLE'
     sample_name: 
       taxon_id: 'ID, see standard taxonomies: https://ena-docs.readthedocs.io/en/latest/faq/taxonomy.html and environmental taxonomies: https://ena-docs.readthedocs.io/en/latest/faq/taxonomy.html#environmental-taxonomic-classifications'
@@ -69,36 +57,14 @@ cat >>INPUT_FORM.yml <<EOF
 experiments:
 EOF
 
-for FILE in \$(ls ${nano_reads}); do
+for FILE in \$(ls *R1*.gz); do
+BN=\$(basename \${FILE} .R1.fastq.gz)
 cat >>INPUT_FORM.yml <<EOF
   experiment_set:
-    alias: 'exp_${nano_name}'
+    alias: 'exp_\${BN}'
     study_refname: 'STUDY_ALIAS'
     design:
-      sample_refname: ${nano_name}
-      library_descriptor:
-        library_strategy: 'WGS'
-        library_source: 'METAGENOMIC'
-        library_selection: 'size fractionation'
-        library_layout:
-          single: 
-        library_construction_protocol: 'We performed Nanopore sequencing ...'
-    platform: 
-      nanopore:
-        instrument_model: 'Oxford Nanopore Technologies MinION'
-    experiment_attributes:
-      experiment_attribute:
-        tag: 'library preparation date'
-        value: 'yyyy-mm'
-EOF
-done
-for FILE in \$(ls ${illumina_name}*R1*); do
-cat >>INPUT_FORM.yml <<EOF
-  experiment_set:
-    alias: 'exp_${illumina_name}'
-    study_refname: 'STUDY_ALIAS'
-    design:
-      sample_refname: ${illumina_name}
+      sample_refname: \${BN}
       library_descriptor:
         library_strategy: 'WGS'
         library_source: 'METAGENOMIC'
@@ -123,6 +89,78 @@ cat >>INPUT_FORM.yml <<EOF
 runs:
 EOF
 
+for FILE in \$(ls *R1*.gz); do
+BN=\$(basename \${FILE} .R1.fastq.gz)
+cat >>INPUT_FORM.yml <<EOF
+  run_set:
+    alias: 'run_\${BN}'
+    experiment_ref: 'exp_\${BN}'
+    data_block:
+      files:
+        file:
+          filename: '\${FILE}'
+          filetype: 'fastq'
+          checksum_method: 'md5'
+          checksum: '\$(cat \${BN}*R1*checksum | cut -f1 -d " ")'
+        file:
+          filename: '\$(echo \${FILE} | sed 's/R1/R2/g')'
+          filetype: 'fastq'
+          checksum_method: 'md5'
+          checksum: '\$(cat \${BN}*R2*checksum | cut -f1 -d " ")'
+EOF
+done
+
+"""
+}
+
+
+/*
+
+
+
+
+for FILE in \$(ls ${nano_reads}); do
+cat >>INPUT_FORM.yml <<EOF
+  sample_set:
+    alias: '${nano_name}'
+    title: 'SAMPLE_TITLE'
+    sample_name: 
+      taxon_id: 'ID, see standard taxonomies: https://ena-docs.readthedocs.io/en/latest/faq/taxonomy.html and environmental taxonomies: https://ena-docs.readthedocs.io/en/latest/faq/taxonomy.html#environmental-taxonomic-classifications'
+      scientific_name: 'NAME ACCORDING TO taxon_id'
+    sample_attributes:
+      sample_attribute:
+        tag: 'collection date'
+        value: 'yyyy-mm-dd'
+      sample_attribute:
+        tag: 'sequencing method'
+        value: 'Oxford Nanopore Technologies'
+EOF
+done
+
+for FILE in \$(ls ${nano_reads}); do
+cat >>INPUT_FORM.yml <<EOF
+  experiment_set:
+    alias: 'exp_${nano_name}'
+    study_refname: 'STUDY_ALIAS'
+    design:
+      sample_refname: ${nano_name}
+      library_descriptor:
+        library_strategy: 'WGS'
+        library_source: 'METAGENOMIC'
+        library_selection: 'size fractionation'
+        library_layout:
+          single: 
+        library_construction_protocol: 'We performed Nanopore sequencing ...'
+    platform: 
+      nanopore:
+        instrument_model: 'Oxford Nanopore Technologies MinION'
+    experiment_attributes:
+      experiment_attribute:
+        tag: 'library preparation date'
+        value: 'yyyy-mm'
+EOF
+done
+
 for FILE in \$(ls ${nano_reads}); do
 cat >>INPUT_FORM.yml <<EOF
   run_set:
@@ -134,7 +172,7 @@ cat >>INPUT_FORM.yml <<EOF
           filename: '${nano_reads}'
           filetype: 'fastq'
           checksum_method: 'md5'
-          checksum: '35739c52e8d4f62fdf705af09d912c37'
+          checksum: '\$(cat ${nano_md5} | cut -f1 -d " ")'
         file:
           filename: 'fast5.tar.gz'
           filetype: 'OxfordNanopore_native'
@@ -142,26 +180,5 @@ cat >>INPUT_FORM.yml <<EOF
           checksum: ''
 EOF
 done
-for FILE in \$(ls ${illumina_name}*R1*); do
-cat >>INPUT_FORM.yml <<EOF
-  run_set:
-    alias: 'run_${illumina_name}'
-    experiment_ref: 'exp_${illumina_name}'
-    data_block:
-      files:
-        file:
-          filename: '${illumina_reads[0]}'
-          filetype: 'fastq'
-          checksum_method: 'md5'
-          checksum: '5458d0fc235571bb0aa5ca89d5f24144'
-        file:
-          filename: '${illumina_reads[1]}'
-          filetype: 'fastq'
-          checksum_method: 'md5'
-          checksum: '43f76e73175fbe9587ca9e447a2ad0b8'
-EOF
-done
 
-
-    """
-}
+*/
