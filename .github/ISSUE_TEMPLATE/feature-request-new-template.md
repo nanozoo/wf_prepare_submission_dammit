@@ -1,5 +1,5 @@
 ---
-name: Feature request new template
+name: Request new upload template
 about: Suggest an new template for automatation
 title: ''
 labels: enhancement
